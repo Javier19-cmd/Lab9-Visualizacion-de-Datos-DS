@@ -26,12 +26,9 @@ train = pd.read_csv("train.csv")
 
 # Creando un grid para enseñar las transformaciones
 st.title("Transformaciones del Dataset")
-col1, col2 = st.beta_columns(2)
-
-# Enseñando el DataFrame original
-with col1:
-    st.write("**DataFrame Original**")
-    st.write(train.head())
+# Mostrar el DataFrame original en la primera columna
+st.header("DataFrame Original")
+st.write(train.head())
 
 # Cargando las primeras 5 filas del dataset.
 
@@ -40,11 +37,8 @@ print(train.head())
 
 # Convertiendo todas las columnas de texto a minúsculas del dataset train.
 train = train.apply(lambda x: x.astype(str).str.lower() if x.dtype == "object" else x)
+st.write(train.head())
 
-# Enseñando el DataFrame con texto en minúsculas
-with col2:
-    st.write("**DataFrame con Texto en Minúsculas**")
-    st.write(train.head())
 
 # Función para limpiar los caracteres especiales
 def clean_text(text):
@@ -60,6 +54,9 @@ train = train.applymap(clean_text)
 
 # Imprimir df resultante
 print(train)
+
+st.header("DataFrame con Texto Limpio")
+st.write(train.head())
 
 # Obteneniendo estadísticas sobre las longitudes de los textos en la columna "keyword"
 train['tweet_length'] = train['text'].apply(len)  # Agregando una columna con las longitudes de los textos
