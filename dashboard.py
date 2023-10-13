@@ -121,3 +121,5 @@ st.button("Re-run")
 # Visualizar las gráficas generadas en la sección de procesamiento de datos
 st.pyplot(fig_text_length)
 st.pyplot(fig_top_keywords)
+
+# Comando para correr streamlit run dashboard.py en la terminal y en el browser.
