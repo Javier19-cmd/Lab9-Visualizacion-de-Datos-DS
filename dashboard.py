@@ -1,125 +1,134 @@
+# Importaciones necesarias
 import pandas as pd
 import re
-import nltk
-from nltk import word_tokenize, bigrams
-from nltk.corpus import stopwords
-from collections import Counter
-import matplotlib.pyplot as plt
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.model_selection import train_test_split
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
-import seaborn as sns
-from sklearn.feature_extraction.text import CountVectorizer
-from nltk import ngrams
-from wordcloud import WordCloud
-from textblob import TextBlob
-from sklearn.linear_model import LogisticRegression
 from textblob import TextBlob
 import streamlit as st
 import numpy as np
 import time
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score
 
-# Cargando el dataset desde un archivo CSV
-
+# Carga del conjunto de datos
 train = pd.read_csv("train.csv")
 
-# Creando un grid para enseñar las transformaciones
-st.title("Transformaciones del Dataset")
-# Mostrar el DataFrame original en la primera columna
-st.header("DataFrame Original")
+# Título y subheader
+st.title("Laboratorio 9: Visualización Interactiva")
+st.sidebar.header("Parámetros de Configuración")
+
+# Mostrar datos originales
+st.subheader('Datos Originales')
 st.write(train.head())
 
-# Cargando las primeras 5 filas del dataset.
+# Convertir todo a minúsculas
+train = train.apply(lambda x: x.astype(str).str.lower()
+                    if x.dtype == "object" else x)
 
-print("train")
-print(train.head())
-
-# Convertiendo todas las columnas de texto a minúsculas del dataset train.
-train = train.apply(lambda x: x.astype(str).str.lower() if x.dtype == "object" else x)
-st.write(train.head())
+# Limpiar caracteres especiales
 
 
-# Función para limpiar los caracteres especiales
 def clean_text(text):
     if isinstance(text, str):
-        # Eliminar caracteres no alfanuméricos excepto espacios
         cleaned_text = re.sub(r'[^a-zA-Z0-9\s]', '', text)
         return cleaned_text
     else:
         return text
 
-# Aplicando la función a todas las columnas de texto del df train.
+
 train = train.applymap(clean_text)
 
-# Imprimir df resultante
-print(train)
-
-st.header("DataFrame con Texto Limpio")
+# Mostrar datos limpios
+st.subheader('Datos Limpíos')
 st.write(train.head())
 
-# Obteneniendo estadísticas sobre las longitudes de los textos en la columna "keyword"
-train['tweet_length'] = train['text'].apply(len)  # Agregando una columna con las longitudes de los textos
-text_stats = train['tweet_length'].describe()
+# Calcular longitud del tweet y polaridad
+train['tweet_length'] = train['text'].apply(len)
+train['polarity'] = train['text'].apply(
+    lambda x: TextBlob(x).sentiment.polarity)
 
-# Obteneniedo la cantidad de categorías únicas en la columna "location"
-location_unique_count = train['location'].nunique()
+# Entrenamiento de Modelos
+# Definición de características y etiquetas
+features = ['tweet_length', 'polarity']
+X = train[features]
+y = train['target'].astype(int)
 
-# Imprimiendo las estadísticas de longitud de textos y la cantidad de categorías únicas en la ubicación
-print("Estadísticas de longitud de textos:\n", text_stats)
-print("\nCantidad de categorías únicas en base al texto:", location_unique_count)
+# Separar los datos en conjuntos de entrenamiento y prueba
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42)
 
-# Coloca aquí el código de procesamiento de datos que deseas combinar
-train['tweet_length'] = train['keyword'].apply(len)
-text_stats = train['tweet_length'].describe()
-location_unique_count = train['location'].nunique()
+# Modelo de regresión logística basado en la longitud del tweet
+logreg1 = LogisticRegression().fit(X_train[['tweet_length']], y_train)
+y1_pred = logreg1.predict(X_test[['tweet_length']])
+accuracy1 = accuracy_score(y_test, y1_pred)
 
-# Gráfico de histograma de longitudes de textos excluyendo NaN
+# Modelo de regresión logística basado en longitud y polaridad del tweet
+logreg2 = LogisticRegression().fit(X_train, y_train)
+y2_pred = logreg2.predict(X_test)
+accuracy2 = accuracy_score(y_test, y2_pred)
+
+# Modelo de árbol de decisión
+tree_depth = st.sidebar.slider(
+    'Profundidad máxima del árbol de decisión', 1, 5, 3)
+tree_model = DecisionTreeClassifier(max_depth=tree_depth).fit(X_train, y_train)
+y_tree_pred = tree_model.predict(X_test)
+accuracy_tree = accuracy_score(y_test, y_tree_pred)
+
+# Mostrar resultados de modelos
+st.subheader('Resultados de Modelos de Predicción')
+st.write(
+    f'Modelo basado solo en longitud del tweet: Precisión {accuracy1:.2f}')
+st.write(f'Modelo basado en longitud y polaridad: Precisión {accuracy2:.2f}')
+st.write(f'Modelo de Árbol de Decisión: Precisión {accuracy_tree:.2f}')
+
+# Definición de la paleta de colores
+color_palette = {
+    "Rojo oscuro": "#8B0000",
+    "Negro": "#000000",
+    "Gris oscuro": "#A9A9A9",
+    "Azul nocturno": "#191970",
+    "Plateado": "#C0C0C0",
+    "Naranja oscuro": "#FF8C00"
+}
+
+# Histograma de longitudes de textos con color "Azul nocturno"
 fig_text_length = plt.figure(figsize=(10, 6))
-sns.histplot(train['tweet_length'].dropna(), bins=30, kde=True, color="steelblue")
+sns.histplot(train['tweet_length'].dropna(), bins=30,
+             kde=True, color=color_palette["Azul nocturno"])
 plt.title('Distribución de Longitudes de Textos')
 plt.xlabel('Longitud de Textos')
 plt.ylabel('Frecuencia')
+st.pyplot(fig_text_length)
 
-# Calcular la frecuencia de las palabras clave
+# Gráfico de palabras clave más frecuentes con color "Rojo oscuro"
 keyword_freq = train['keyword'].value_counts()
-
-# Seleccionar las palabras clave más frecuentes.
 top_keywords = keyword_freq.head(30)
-
-# Crear un gráfico de barras de las palabras clave más frecuentes
 fig_top_keywords = plt.figure(figsize=(10, 6))
-sns.barplot(x=top_keywords.values, y=top_keywords.index, color="darkred")
+sns.barplot(x=top_keywords.values, y=top_keywords.index,
+            color=color_palette["Rojo oscuro"])
 plt.title('Palabras Clave Más Frecuentes')
 plt.xlabel('Frecuencia')
 plt.ylabel('Palabra Clave')
-
-# Sección de la aplicación Streamlit
-st.title("Laboratorio 9")
-
-# Barra de progreso y gráfico
-progress_bar = st.sidebar.progress(0)
-status_text = st.sidebar.empty()
-last_rows = np.random.randn(1, 1)
-#chart = st.line_chart(last_rows)
-
-for i in range(1, 101):
-    new_rows = last_rows[-1, :] + np.random.randn(5, 1).cumsum(axis=0)
-    status_text.text("%i%% Complete" % i)
-    #chart.add_rows(new_rows)
-    progress_bar.progress(i)
-    last_rows = new_rows
-    time.sleep(0.05)
-
-progress_bar.empty()
-
-# Visualizar las gráficas generadas en la sección de procesamiento de datos
-st.pyplot(fig_text_length)
 st.pyplot(fig_top_keywords)
 
-# Comando para correr streamlit run dashboard.py en la terminal y en el browser.
+# Sliders y gráficos enlazados
+tweet_length_range = st.sidebar.slider('Selecciona un rango de longitud de tweet', int(
+    train['tweet_length'].min()), int(train['tweet_length'].max()), (25, 125))
+polarity_range = st.sidebar.slider('Selecciona un rango de polaridad', float(
+    train['polarity'].min()), float(train['polarity'].max()), (-1.0, 1.0), 0.1)
+filtered_data = train[(train['tweet_length'] >= tweet_length_range[0]) &
+                      (train['tweet_length'] <= tweet_length_range[1]) &
+                      (train['polarity'] >= polarity_range[0]) &
+                      (train['polarity'] <= polarity_range[1])]
 
-# Streamlit widgets automatically run the script from top to bottom. Since
-# this button is not connected to any other logic, it just causes a plain
-# rerun.
-st.button("Re-run")
+# Histograma de polaridad filtrado con color "Azul nocturno"
+fig_polarity = plt.figure(figsize=(10, 6))
+sns.histplot(filtered_data['polarity'], bins=30,
+             kde=True, color=color_palette["Azul nocturno"])
+plt.title('Distribución de Polaridad Filtrada')
+plt.xlabel('Polaridad')
+plt.ylabel('Frecuencia')
+st.pyplot(fig_polarity)
